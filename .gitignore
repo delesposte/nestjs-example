@@ -397,3 +397,7 @@ Temporary Items
 # Local
 .env
 dist
+
+
+git-add.bat
+git-reset.bat

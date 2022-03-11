@@ -2,7 +2,7 @@ import { CreateFormatoDto } from './dto/createFormato.dto';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, UpdateResult } from 'typeorm';
+import { Equal, Not, Repository, UpdateResult } from 'typeorm';
 import { Formato } from './entities/formato.entity';
 import { FormatoService } from './formato.service';
 import { plainToClass } from 'class-transformer';
@@ -12,7 +12,7 @@ export class EntityFakeFactory {
   public static create(): Formato {
     const entity = new Formato();
     entity.id = '11ec0719-459e-460e-b7d9-73a4012e5b11';
-    entity.formato = 'pdf';
+    entity.formato = 'png';
     entity.ativo = true;
     return entity;
   }
@@ -24,8 +24,7 @@ describe('FormatoService', () => {
 
   beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        FormatoService,
+      providers: [FormatoService,
         {
           provide: getRepositoryToken(Formato),
           useValue: {},
@@ -46,284 +45,264 @@ describe('FormatoService', () => {
   });
 
   describe('create', () => {
-    describe('given a DTO formato', () => {
+    describe('given a DTO Formato', () => {
       const entity = EntityFakeFactory.create();
       const dto = plainToClass(CreateFormatoDto, entity);
 
-      beforeEach(() => {
-        repository.find = jest.fn().mockResolvedValue(undefined);
-        repository.save = jest.fn().mockResolvedValue(entity);
-      });
+      describe('when DTO Formato is valid', () => {
+        beforeEach(() => {
+          repository.find = jest.fn().mockResolvedValue(undefined);
+          repository.save = jest.fn().mockResolvedValue(entity);
+        })
 
-      describe('when DTO formato is valid', () => {
-        it('should create a formato', async () => {
-          const formato = await service.create(dto);
+        it('should create a Formato', async () => {
+          const Formato = await service.create(dto);
           expect(repository.save).toHaveBeenCalledTimes(1);
           expect(repository.save).toHaveBeenCalledWith(entity);
-          expect(formato).toEqual(entity);
-        });
-      });
-    });
+          expect(Formato).toEqual(entity);
+        })
+      })
 
-    describe('given a DTO formato', () => {
-      const entity = EntityFakeFactory.create();
-      const dto = plainToClass(CreateFormatoDto, entity);
+      describe('when Formato already exists', () => {
+        beforeEach(() => {
+          repository.find = jest.fn().mockResolvedValue([entity]);
+          repository.save = jest.fn().mockResolvedValue(undefined);
+        })
 
-      beforeEach(() => {
-        repository.find = jest.fn().mockResolvedValue([entity]);
-        repository.save = jest.fn().mockResolvedValue(undefined);
-      });
-
-      describe('when formato already exists', () => {
         it('should return an error', async () => {
           await expect(service.create(dto)).rejects.toThrow(
-            new BadRequestException('Format already exists'),
-          );
+            new BadRequestException('Formato already exists'));
+          expect(repository.find).toHaveBeenCalledWith({
+            formato: Equal(dto.formato)
+          })
           expect(repository.save).toHaveBeenCalledTimes(0);
-        });
-      });
-    });
-
-    describe('given a DTO formato', () => {
-      beforeEach(() => {
-        repository.save = jest.fn().mockResolvedValue(undefined);
-      });
+        })
+      })
 
       describe('when formato is undefined', () => {
+        beforeEach(() => {
+          repository.save = jest.fn().mockResolvedValue(undefined);
+        })
+
         it('should return an error', async () => {
           const dto = plainToClass(CreateFormatoDto, { formato: undefined });
           await expect(service.create(dto)).rejects.toThrow(
-            new BadRequestException('Format is invalid'),
-          );
+            new BadRequestException('Formato is invalid'));
           expect(repository.save).toHaveBeenCalledTimes(0);
-        });
-      });
+        })
+      })
 
       describe('when formato is empty', () => {
+        beforeEach(() => {
+          repository.save = jest.fn().mockResolvedValue(undefined);
+        })
+
         it('should return an error', async () => {
           const dto = plainToClass(CreateFormatoDto, { formato: '' });
           await expect(service.create(dto)).rejects.toThrow(
-            new BadRequestException('Format is invalid'),
-          );
+            new BadRequestException('Formato is invalid'));
           expect(repository.save).toHaveBeenCalledTimes(0);
-        });
-      });
+        })
+      })
 
       describe('when ativo is undefined', () => {
+        beforeEach(() => {
+          repository.save = jest.fn().mockResolvedValue(undefined);
+        })
+
         it('should return an error', async () => {
           const dto = plainToClass(CreateFormatoDto, { ativo: undefined });
           await expect(service.create(dto)).rejects.toThrow(
-            new BadRequestException('Format is invalid'),
-          );
+            new BadRequestException('Formato is invalid'));
           expect(repository.save).toHaveBeenCalledTimes(0);
-        });
-      });
-    });
+        })
+      })
+    })
   });
 
   describe('update', () => {
-    describe('given a formato id and a DTO formato', () => {
+    describe('given a Formato id and a DTO Formato', () => {
       const entity = EntityFakeFactory.create();
       entity.ativo = false;
-      entity.formato = 'txt';
+      entity.formato = 'png';
 
       const dto = plainToClass(UpdateFormatoDto, entity);
+
       const updateResultAffectedOne = new UpdateResult();
       updateResultAffectedOne.affected = 1;
 
-      beforeEach(() => {
-        repository.findOne = jest.fn().mockResolvedValue(entity);
-        repository.find = jest.fn().mockResolvedValue(undefined);
-        repository.update = jest
-          .fn()
-          .mockResolvedValue(updateResultAffectedOne);
-      });
+      const updateResultAffectedNone = new UpdateResult();
+      updateResultAffectedNone.affected = 0;
 
-      describe('when id exists and DTO formato is valid', () => {
-        it('should update a formato', async () => {
-          const formato = await service.update(entity.id, dto);
+      describe('when id exists and DTO Formato is valid', () => {
+        beforeEach(() => {
+          repository.findOne = jest.fn().mockResolvedValue(entity);
+          repository.find = jest.fn().mockResolvedValue(undefined);
+          repository.update = jest.fn().mockResolvedValue(updateResultAffectedOne);
+        })
+
+        it('should update a Formato', async () => {
+          const Formato = await service.update(entity.id, dto);
           expect(repository.update).toHaveBeenCalledTimes(1);
           expect(repository.update).toHaveBeenCalledWith(entity.id, entity);
-          expect(formato).toEqual(entity);
-        });
-      });
-    });
+          expect(Formato).toEqual(entity);
+        })
+      })
 
-    describe('given a formato id and a DTO formato', () => {
-      const entity = EntityFakeFactory.create();
-      const dto = plainToClass(UpdateFormatoDto, entity);
-      const updateResultAffectedNone = new UpdateResult();
-      updateResultAffectedNone.affected = 0;
+      describe('when Formato does not exists', () => {
+        beforeEach(() => {
+          repository.find = jest.fn().mockResolvedValue(undefined);
+          repository.update = jest.fn().mockResolvedValue(updateResultAffectedNone);
+        })
 
-      beforeEach(() => {
-        repository.find = jest.fn().mockResolvedValue(undefined);
-        repository.update = jest
-          .fn()
-          .mockResolvedValue(updateResultAffectedNone);
-      });
-
-      describe('when formato does not exists', () => {
         it('should return an error', async () => {
           await expect(service.update(entity.id, dto)).rejects.toThrow(
-            new NotFoundException(),
-          );
+            new NotFoundException());
           expect(repository.update).toHaveBeenCalledTimes(1);
-        });
-      });
-    });
+        })
+      })
 
-    describe('given a formato id and a DTO formato', () => {
-      const entity = EntityFakeFactory.create();
-      const dto = plainToClass(UpdateFormatoDto, entity);
+      describe('when updating to a Formato that already exists', () => {
+        beforeEach(() => {
+          repository.find = jest.fn().mockResolvedValue([entity]);
+          repository.update = jest.fn().mockResolvedValue(undefined);
+        })
 
-      beforeEach(() => {
-        repository.find = jest.fn().mockResolvedValue([entity]);
-        repository.update = jest.fn().mockResolvedValue(undefined);
-      });
-
-      describe('when updating to a formato that already exists', () => {
         it('should return an error', async () => {
           await expect(service.update(entity.id, dto)).rejects.toThrow(
-            new BadRequestException('Format already exists'),
-          );
+            new BadRequestException('Formato already exists'));
+          expect(repository.find).toHaveBeenCalledWith({
+            formato: Equal(dto.formato),
+            id: Not(entity.id)
+          })
           expect(repository.update).toHaveBeenCalledTimes(0);
-        });
-      });
-    });
-
-    describe('given a formato id and a DTO formato', () => {
-      const entity = EntityFakeFactory.create();
-      const dto = plainToClass(UpdateFormatoDto, entity);
-      const updateResultAffectedNone = new UpdateResult();
-      updateResultAffectedNone.affected = 0;
-
-      beforeEach(() => {
-        repository.find = jest.fn().mockResolvedValue(undefined);
-        repository.update = jest
-          .fn()
-          .mockResolvedValue(updateResultAffectedNone);
-      });
+        })
+      })
 
       describe('when the update does not affect anything', () => {
+        beforeEach(() => {
+          repository.find = jest.fn().mockResolvedValue(undefined);
+          repository.update = jest.fn().mockResolvedValue(updateResultAffectedNone);
+        })
+
         it('should return an error', async () => {
           await expect(service.update(entity.id, dto)).rejects.toThrow(
-            new NotFoundException(),
-          );
+            new NotFoundException());
           expect(repository.update).toHaveBeenCalledTimes(1);
-        });
-      });
-    });
+        })
+      })
 
-    describe('given a formato id and a DTO formato', () => {
-      const entity = EntityFakeFactory.create();
+      describe('when not finding a Formato to return after update', () => {
+        beforeEach(() => {
+          repository.find = jest.fn().mockResolvedValue(undefined);
+          repository.findOne = jest.fn().mockResolvedValue(undefined);
+          repository.update = jest.fn().mockResolvedValue(updateResultAffectedOne);
+        })
 
-      beforeEach(() => {
-        repository.update = jest.fn().mockResolvedValue(undefined);
-      });
+        it('should return an error', async () => {
+          await expect(service.update(entity.id, dto)).rejects.toThrow(
+            new NotFoundException());
+          expect(repository.update).toHaveBeenCalledTimes(1);
+        })
+      })
 
-      describe('when DTO formato is undefined', () => {
+      describe('when DTO Formato is undefined', () => {
+        beforeEach(() => {
+          repository.update = jest.fn().mockResolvedValue(undefined);
+        })
+
         it('should return an error', async () => {
           await expect(service.update(entity.id, undefined)).rejects.toThrow(
-            new BadRequestException(),
-          );
+            new BadRequestException());
           expect(repository.update).toHaveBeenCalledTimes(0);
-        });
-      });
-    });
-
-    describe('given a formato id and a DTO formato', () => {
-      const entity = EntityFakeFactory.create();
-      const dto = plainToClass(UpdateFormatoDto, entity);
-
-      beforeEach(() => {
-        repository.update = jest.fn().mockResolvedValue(undefined);
-      });
+        })
+      })
 
       describe('when id is empty', () => {
+        beforeEach(() => {
+          repository.update = jest.fn().mockResolvedValue(undefined);
+        })
+
         it('should return an error', async () => {
           await expect(service.update('', dto)).rejects.toThrow(
-            new BadRequestException(),
-          );
+            new BadRequestException());
           expect(repository.update).toHaveBeenCalledTimes(0);
-        });
-      });
+        })
+      })
 
       describe('when id is undefined', () => {
+        beforeEach(() => {
+          repository.update = jest.fn().mockResolvedValue(undefined);
+        })
+
         it('should return an error', async () => {
           await expect(service.update(undefined, dto)).rejects.toThrow(
-            new BadRequestException(),
-          );
+            new BadRequestException());
           expect(repository.update).toHaveBeenCalledTimes(0);
-        });
-      });
-    });
-  });
+        })
+      })
+    })
+  })
 
   describe('findAll', () => {
-    describe('given an array of formatos', () => {
-      const formatosFake = [EntityFakeFactory.create()];
+    describe('given an array of Formatos', () => {
+      const FormatosFake = [EntityFakeFactory.create()];
 
       beforeEach(() => {
-        repository.find = jest.fn().mockResolvedValue(formatosFake);
-      });
+        repository.find = jest.fn().mockResolvedValue(FormatosFake);
+      })
 
       describe('when no params', () => {
-        it('should return all formatos', async () => {
-          const formatos = await service.findAll();
-          expect(formatosFake).toEqual(formatos);
+        it('should return all Formatos', async () => {
+          const Formatos = await service.findAll();
+          expect(FormatosFake).toEqual(Formatos);
           expect(repository.find).toHaveBeenCalledTimes(1);
-        });
-      });
-    });
-  });
+        })
+      })
+    })
+  })
 
   describe('findOne', () => {
-    describe('given a formato id', () => {
+    describe('given a Formato id', () => {
       const entity = EntityFakeFactory.create();
 
-      beforeEach(() => {
-        repository.findOne = jest.fn().mockResolvedValue(entity);
-      });
+      describe('when id exists', () => {
+        beforeEach(() => {
+          repository.findOne = jest.fn().mockResolvedValue(entity);
+        })
 
-      describe('when formato id exists', () => {
-        it('should return a formato', async () => {
-          const formato = await service.findOne(entity.id);
-          expect(entity).toEqual(formato);
+        it('should return a Formato', async () => {
+          const Formato = await service.findOne(entity.id);
+          expect(entity).toEqual(Formato);
           expect(repository.findOne).toHaveBeenCalledTimes(1);
-        });
-      });
-    });
-
-    describe('given a formato id', () => {
-      beforeEach(() => {
-        repository.findOne = jest.fn().mockResolvedValue(undefined);
-      });
+        })
+      })
 
       describe('when id is empty', () => {
+        beforeEach(() => {
+          repository.findOne = jest.fn().mockResolvedValue(undefined);
+        })
+
         it('should return an error', async () => {
           await expect(service.findOne('')).rejects.toThrow(
-            new BadRequestException(),
-          );
+            new BadRequestException());
           expect(repository.findOne).toHaveBeenCalledTimes(0);
-        });
-      });
-    });
+        })
+      })
 
-    describe('given a formato id', () => {
-      const id = '99ec0719-459e-460e-b7d9-73a4012e5b99';
+      describe('when not finding a Formato', () => {
+        const id = '99ec0719-459e-460e-b7d9-73a4012e5b99';
 
-      beforeEach(() => {
-        repository.findOne = jest.fn().mockResolvedValue(undefined);
-      });
+        beforeEach(() => {
+          repository.findOne = jest.fn().mockResolvedValue(undefined);
+        })
 
-      describe('when not finding a formato', () => {
         it('should return an error', async () => {
           await expect(service.findOne(id)).rejects.toThrow(
-            new NotFoundException(),
-          );
+            new NotFoundException());
           expect(repository.findOne).toHaveBeenCalledTimes(1);
-        });
-      });
-    });
-  });
+        })
+      })
+    })
+  })
 });

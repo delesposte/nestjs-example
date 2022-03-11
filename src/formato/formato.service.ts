@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
@@ -13,16 +9,17 @@ import { Formato } from './entities/formato.entity';
 
 @Injectable()
 export class FormatoService {
+
   constructor(
     @InjectRepository(Formato)
-    private repository: Repository<Formato>,
-  ) {}
+    private repository: Repository<Formato>
+  ) { }
 
   private async validateDto(dto: object): Promise<void> {
     const validationError = await validate(dto);
 
     if (validationError && validationError.length > 0) {
-      throw new BadRequestException('Format is invalid');
+      throw new BadRequestException('Formato is invalid');
     }
   }
 
@@ -76,12 +73,9 @@ export class FormatoService {
     return entitty;
   }
 
-  private async validateDuplicateFormato(
-    formato: string,
-    id?: string,
-  ): Promise<void> {
+  private async validateDuplicateFormato(formato: string, id?: string): Promise<void> {
     const findConditions: FindConditions<Formato> = {
-      formato: Equal(formato),
+      formato: Equal(formato)
     };
 
     if (id) {
@@ -91,7 +85,8 @@ export class FormatoService {
     const entitiesFound = await this.repository.find(findConditions);
 
     if (entitiesFound && entitiesFound.length > 0) {
-      throw new BadRequestException('Format already exists');
+      throw new BadRequestException('Formato already exists');
     }
   }
+
 }

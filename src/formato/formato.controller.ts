@@ -1,23 +1,16 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  UseInterceptors,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors } from '@nestjs/common';
 import { FormatoService } from './formato.service';
 import { CreateFormatoDto } from './dto/createFormato.dto';
 import { UpdateFormatoDto } from './dto/updateFormato.dto';
 import { Formato } from './entities/formato.entity';
-import { TransformInterceptor } from 'src/core/interceptors/Transform.interceptor';
+import { TransformInterceptor } from '../core/interceptors/Transform.interceptor';
 import { OutputFormatoDto } from './dto/outputFormato.dto';
 
 @Controller('formato')
 @UseInterceptors(new TransformInterceptor(OutputFormatoDto))
 export class FormatoController {
-  constructor(private readonly service: FormatoService) {}
+
+  constructor(private readonly service: FormatoService) { }
 
   @Post()
   async create(@Body() createFormatoDto: CreateFormatoDto): Promise<Formato> {
@@ -35,10 +28,8 @@ export class FormatoController {
   }
 
   @Patch(':id')
-  async update(
-    @Param('id') id: string,
-    @Body() updateFormatoDto: UpdateFormatoDto,
-  ): Promise<Formato> {
+  async update(@Param('id') id: string, @Body() updateFormatoDto: UpdateFormatoDto): Promise<Formato> {
     return this.service.update(id, updateFormatoDto);
   }
+  
 }

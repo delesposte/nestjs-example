@@ -4,41 +4,38 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { plainToClass } from 'class-transformer';
 import { validate } from 'class-validator';
-import { Repository, Equal, Not } from 'typeorm';
-import { AssemblerFormato } from './dto/assembler-formato';
-import { CreateFormatoDto } from './dto/create-formato.dto';
-import { UpdateFormatoDto } from './dto/update-formato.dto';
+import { Repository, Equal, Not, FindConditions } from 'typeorm';
+import { CreateFormatoDto } from './dto/createFormato.dto';
+import { UpdateFormatoDto } from './dto/updateFormato.dto';
 import { Formato } from './entities/formato.entity';
 
 @Injectable()
 export class FormatoService {
   constructor(
     @InjectRepository(Formato)
-    private formatoRepository: Repository<Formato>,
+    private repository: Repository<Formato>,
   ) {}
 
-  async create(createFormatoDto: CreateFormatoDto): Promise<Formato> {
-    const validationError = await validate(createFormatoDto);
+  private async validateDto(dto: object): Promise<void> {
+    const validationError = await validate(dto);
 
     if (validationError && validationError.length > 0) {
       throw new BadRequestException('Format is invalid');
     }
+  }
 
-    const entitiesFound = await this.formatoRepository.find({
-      formato: createFormatoDto.formato,
-    });
+  async create(dto: CreateFormatoDto): Promise<Formato> {
+    await this.validateDto(dto);
+    await this.validateDuplicateFormato(dto.formato);
 
-    if (entitiesFound && entitiesFound.length > 0) {
-      throw new BadRequestException('Format already exists');
-    }
-
-    const entity = AssemblerFormato.assembly(createFormatoDto);
-    return await this.formatoRepository.save(entity);
+    const entity = plainToClass(Formato, dto);
+    return await this.repository.save(entity);
   }
 
   async findAll(): Promise<Formato[]> {
-    return await this.formatoRepository.find();
+    return await this.repository.find();
   }
 
   async findOne(id: string): Promise<Formato> {
@@ -46,7 +43,7 @@ export class FormatoService {
       throw new BadRequestException();
     }
 
-    const formato = await this.formatoRepository.findOne(id);
+    const formato = await this.repository.findOne(id);
 
     if (!formato) {
       throw new NotFoundException();
@@ -55,44 +52,46 @@ export class FormatoService {
     return formato;
   }
 
-  async update(
-    id: string,
-    updateFormatoDto: UpdateFormatoDto,
-  ): Promise<Formato> {
-    if (!id || !updateFormatoDto) {
+  async update(id: string, dto: UpdateFormatoDto): Promise<Formato> {
+    if (!id || !dto) {
       throw new BadRequestException();
     }
 
-    const validationError = await validate(updateFormatoDto);
+    await this.validateDto(dto);
+    await this.validateDuplicateFormato(dto.formato, id);
 
-    if (validationError && validationError.length > 0) {
-      throw new BadRequestException('Format is invalid');
-    }
-
-    const entity = await this.formatoRepository.findOne(id);
-
-    if (!entity) {
-      throw new NotFoundException();
-    }
-
-    const entitiesFound = await this.formatoRepository.find({
-      id: Not(id),
-      formato: Equal(updateFormatoDto.formato),
-    });
-
-    if (entitiesFound && entitiesFound.length > 0) {
-      throw new BadRequestException('Format already exists');
-    }
-
-    entity.formato = updateFormatoDto.formato;
-    entity.ativo = updateFormatoDto.ativo;
-
-    const updateResult = await this.formatoRepository.update(entity.id, entity);
+    const entityToUpdate = plainToClass(Formato, dto);
+    const updateResult = await this.repository.update(id, entityToUpdate);
 
     if (!updateResult || !updateResult.affected || updateResult.affected <= 0) {
       throw new NotFoundException();
     }
 
-    return entity;
+    const entitty = await this.repository.findOne(id);
+
+    if (!entitty) {
+      throw new NotFoundException();
+    }
+
+    return entitty;
+  }
+
+  private async validateDuplicateFormato(
+    formato: string,
+    id?: string,
+  ): Promise<void> {
+    const findConditions: FindConditions<Formato> = {
+      formato: Equal(formato),
+    };
+
+    if (id) {
+      findConditions.id = Not(id);
+    }
+
+    const entitiesFound = await this.repository.find(findConditions);
+
+    if (entitiesFound && entitiesFound.length > 0) {
+      throw new BadRequestException('Format already exists');
+    }
   }
 }

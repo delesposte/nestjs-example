@@ -5,10 +5,10 @@ import { IsBoolean, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 export class CreateFormatoDto {
   @IsNotEmpty()
   @IsString()
-  @MaxLength(255)
-  formato: string;
+  @MaxLength(4)
+  readonly formato: string;
 
   @IsNotEmpty()
   @IsBoolean()
-  ativo: boolean;
+  readonly ativo: boolean;
 }

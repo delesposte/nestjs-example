@@ -1,67 +1,28 @@
-import { CreateFormatoDto } from '../formato/dto/create-formato.dto';
+import { CreateFormatoDto } from './dto/createFormato.dto';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import {
-  Equal,
-  FindConditions,
-  FindOperator,
-  Not,
-  Repository,
-  UpdateResult,
-} from 'typeorm';
+import { Repository, UpdateResult } from 'typeorm';
 import { Formato } from './entities/formato.entity';
 import { FormatoService } from './formato.service';
-import { AssemblerFormato } from './dto/assembler-formato';
+import { plainToClass } from 'class-transformer';
+import { UpdateFormatoDto } from './dto/updateFormato.dto';
+
+export class EntityFakeFactory {
+  public static create(): Formato {
+    const entity = new Formato();
+    entity.id = '11ec0719-459e-460e-b7d9-73a4012e5b11';
+    entity.formato = 'pdf';
+    entity.ativo = true;
+    return entity;
+  }
+}
 
 describe('FormatoService', () => {
   let service: FormatoService;
   let repository: Repository<Formato>;
-  let formatoFakePDF: Formato;
-  let formatoFakePNG: Formato;
-  let formatoFakeJPEG: Formato;
-  let formatosFake: Formato[];
-  let updateResultAffectedOne: UpdateResult;
-  let updateResultAffectedNone: UpdateResult;
 
-  function findAll(): Formato[] {
-    return formatosFake;
-  }
-
-  function findOneById(id: string): Formato {
-    for (let i = 0; i < formatosFake.length; i++) {
-      if (formatosFake[i].id === id) {
-        return formatosFake[i];
-      }
-    }
-    return;
-  }
-
-  function findByFormato(conditions: FindConditions<Formato>): Formato[] {
-    return formatosFake.filter((formato) => {
-      if (
-        formato.id !== conditions.id &&
-        formato.formato === conditions.formato
-      ) {
-        return formato;
-      }
-    });
-  }
-
-  function findExistingByOperators(
-    conditions: FindConditions<Formato>,
-  ): Formato[] {
-    const id = conditions.id as FindOperator<string>;
-    const formatoType = conditions.formato as FindOperator<string>;
-
-    return formatosFake.filter((formato) => {
-      if (formato.id !== id?.value && formato.formato === formatoType.value) {
-        return formato;
-      }
-    });
-  }
-
-  beforeEach(async () => {
+  beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         FormatoService,
@@ -72,35 +33,8 @@ describe('FormatoService', () => {
       ],
     }).compile();
 
-    formatoFakePDF = new Formato();
-    formatoFakePDF.id = '11ec0719-459e-460e-b7d9-73a4012e5b11';
-    formatoFakePDF.formato = 'pdf';
-    formatoFakePDF.ativo = true;
-
-    formatoFakePNG = new Formato();
-    formatoFakePNG.id = '22ec0719-459e-460e-b7d9-73a4012e5b22';
-    formatoFakePNG.formato = 'png';
-    formatoFakePNG.ativo = true;
-
-    formatoFakeJPEG = new Formato();
-    formatoFakeJPEG.id = '33ec0719-459e-460e-b7d9-73a4012e5b33';
-    formatoFakeJPEG.formato = 'jpeg';
-    formatoFakeJPEG.ativo = true;
-
-    updateResultAffectedOne = new UpdateResult();
-    updateResultAffectedOne.affected = 1;
-
-    updateResultAffectedNone = new UpdateResult();
-    updateResultAffectedNone.affected = 0;
-
-    formatosFake = [formatoFakePDF, formatoFakePNG];
-
     service = module.get<FormatoService>(FormatoService);
     repository = module.get<Repository<Formato>>(getRepositoryToken(Formato));
-    repository.save = jest.fn().mockResolvedValue(formatoFakeJPEG);
-    repository.update = jest.fn().mockResolvedValue(updateResultAffectedOne);
-    repository.findOne = jest.fn().mockImplementation(findOneById);
-    repository.find = jest.fn().mockImplementation(findOneById);
   });
 
   it('service should be defined', () => {
@@ -112,265 +46,284 @@ describe('FormatoService', () => {
   });
 
   describe('create', () => {
-    it('should create a formato', async () => {
-      repository.find = jest.fn().mockImplementation(findByFormato);
+    describe('given a DTO formato', () => {
+      const entity = EntityFakeFactory.create();
+      const dto = plainToClass(CreateFormatoDto, entity);
 
-      const formatoDto =
-        AssemblerFormato.disassemblyToCreateFormatoDto(formatoFakeJPEG);
-
-      const formato = await service.create(formatoDto);
-
-      expect(repository.find).toHaveBeenCalledTimes(1);
-      expect(repository.find).toHaveBeenCalledWith({
-        formato: formatoDto.formato,
+      beforeEach(() => {
+        repository.find = jest.fn().mockResolvedValue(undefined);
+        repository.save = jest.fn().mockResolvedValue(entity);
       });
-      expect(repository.save).toHaveBeenCalledTimes(1);
-      expect(repository.save).toHaveBeenCalledWith(formatoDto);
-      expect(formato).toEqual(formatoFakeJPEG);
+
+      describe('when DTO formato is valid', () => {
+        it('should create a formato', async () => {
+          const formato = await service.create(dto);
+          expect(repository.save).toHaveBeenCalledTimes(1);
+          expect(repository.save).toHaveBeenCalledWith(entity);
+          expect(formato).toEqual(entity);
+        });
+      });
     });
 
-    it('should return an error when trying to create a format that already exists', async () => {
-      repository.find = jest.fn().mockImplementation(findByFormato);
+    describe('given a DTO formato', () => {
+      const entity = EntityFakeFactory.create();
+      const dto = plainToClass(CreateFormatoDto, entity);
 
-      const formatoDto =
-        AssemblerFormato.disassemblyToCreateFormatoDto(formatoFakePNG);
-
-      await expect(service.create(formatoDto)).rejects.toThrow(
-        new BadRequestException('Format already exists'),
-      );
-
-      expect(repository.find).toHaveBeenCalledTimes(1);
-      expect(repository.find).toHaveBeenCalledWith({
-        formato: formatoFakePNG.formato,
+      beforeEach(() => {
+        repository.find = jest.fn().mockResolvedValue([entity]);
+        repository.save = jest.fn().mockResolvedValue(undefined);
       });
-      expect(repository.save).toHaveBeenCalledTimes(0);
+
+      describe('when formato already exists', () => {
+        it('should return an error', async () => {
+          await expect(service.create(dto)).rejects.toThrow(
+            new BadRequestException('Format already exists'),
+          );
+          expect(repository.save).toHaveBeenCalledTimes(0);
+        });
+      });
     });
 
-    it('should return an error when trying to create an invalid format', async () => {
-      repository.find = jest.fn().mockImplementation(findByFormato);
+    describe('given a DTO formato', () => {
+      beforeEach(() => {
+        repository.save = jest.fn().mockResolvedValue(undefined);
+      });
 
-      const formatoDto = new CreateFormatoDto();
+      describe('when formato is undefined', () => {
+        it('should return an error', async () => {
+          const dto = plainToClass(CreateFormatoDto, { formato: undefined });
+          await expect(service.create(dto)).rejects.toThrow(
+            new BadRequestException('Format is invalid'),
+          );
+          expect(repository.save).toHaveBeenCalledTimes(0);
+        });
+      });
 
-      formatoDto.formato = undefined;
-      await expect(service.create(formatoDto)).rejects.toThrow(
-        new BadRequestException('Format is invalid'),
-      );
+      describe('when formato is empty', () => {
+        it('should return an error', async () => {
+          const dto = plainToClass(CreateFormatoDto, { formato: '' });
+          await expect(service.create(dto)).rejects.toThrow(
+            new BadRequestException('Format is invalid'),
+          );
+          expect(repository.save).toHaveBeenCalledTimes(0);
+        });
+      });
 
-      formatoDto.formato = null;
-      await expect(service.create(formatoDto)).rejects.toThrow(
-        new BadRequestException('Format is invalid'),
-      );
-
-      formatoDto.formato = '';
-      await expect(service.create(formatoDto)).rejects.toThrow(
-        new BadRequestException('Format is invalid'),
-      );
-
-      expect(repository.find).toHaveBeenCalledTimes(0);
-      expect(repository.save).toHaveBeenCalledTimes(0);
+      describe('when ativo is undefined', () => {
+        it('should return an error', async () => {
+          const dto = plainToClass(CreateFormatoDto, { ativo: undefined });
+          await expect(service.create(dto)).rejects.toThrow(
+            new BadRequestException('Format is invalid'),
+          );
+          expect(repository.save).toHaveBeenCalledTimes(0);
+        });
+      });
     });
   });
 
   describe('update', () => {
-    it('should update a formato', async () => {
-      repository.findOne = jest.fn().mockImplementation(findOneById);
-      repository.find = jest.fn().mockImplementation(findExistingByOperators);
-      repository.update = jest.fn().mockResolvedValue(updateResultAffectedOne);
-      formatoFakePDF.ativo = false;
-      formatoFakePDF.formato = 'txt';
+    describe('given a formato id and a DTO formato', () => {
+      const entity = EntityFakeFactory.create();
+      entity.ativo = false;
+      entity.formato = 'txt';
 
-      const formatoDto =
-        AssemblerFormato.disassemblyToUpdateFormatoDto(formatoFakePDF);
-      const formato = await service.update(formatoFakePDF.id, formatoDto);
+      const dto = plainToClass(UpdateFormatoDto, entity);
+      const updateResultAffectedOne = new UpdateResult();
+      updateResultAffectedOne.affected = 1;
 
-      expect(repository.findOne).toHaveBeenCalledTimes(1);
-      expect(repository.findOne).toHaveBeenCalledWith(formatoFakePDF.id);
-      expect(repository.find).toHaveBeenCalledTimes(1);
-      expect(repository.find).toHaveBeenCalledWith({
-        id: Not(formatoFakePDF.id),
-        formato: Equal(formatoDto.formato),
+      beforeEach(() => {
+        repository.findOne = jest.fn().mockResolvedValue(entity);
+        repository.find = jest.fn().mockResolvedValue(undefined);
+        repository.update = jest
+          .fn()
+          .mockResolvedValue(updateResultAffectedOne);
       });
-      expect(repository.update).toHaveBeenCalledTimes(1);
-      expect(repository.update).toHaveBeenCalledWith(
-        formatoFakePDF.id,
-        formatoFakePDF,
-      );
-      expect(formato).toEqual(formatoFakePDF);
-    });
 
-    it('should return an error when trying to update to a formato that does not exists', async () => {
-      repository.findOne = jest.fn().mockImplementation(findOneById);
-      repository.find = jest.fn().mockImplementation(findExistingByOperators);
-      repository.update = jest.fn().mockResolvedValue(updateResultAffectedOne);
-
-      const formatoDto =
-        AssemblerFormato.disassemblyToUpdateFormatoDto(formatoFakePNG);
-
-      await expect(
-        service.update('id-inexistente', formatoDto),
-      ).rejects.toThrow(new NotFoundException());
-
-      expect(repository.findOne).toHaveBeenCalledTimes(1);
-      expect(repository.find).toHaveBeenCalledTimes(0);
-      expect(repository.update).toHaveBeenCalledTimes(0);
-    });
-
-    it('should return an error when trying to update to a formato that already exists', async () => {
-      repository.findOne = jest.fn().mockImplementation(findOneById);
-      repository.find = jest.fn().mockImplementation(findExistingByOperators);
-      repository.update = jest.fn().mockResolvedValue(updateResultAffectedOne);
-
-      const formatoDto =
-        AssemblerFormato.disassemblyToUpdateFormatoDto(formatoFakePNG);
-      formatoDto.formato = formatoFakePDF.formato; /*Formato já existente*/
-
-      await expect(
-        service.update(formatoFakePNG.id, formatoDto),
-      ).rejects.toThrow(new BadRequestException('Format already exists'));
-
-      expect(repository.findOne).toHaveBeenCalledTimes(1);
-      expect(repository.findOne).toHaveBeenCalledWith(formatoFakePNG.id);
-      expect(repository.find).toHaveBeenCalledTimes(1);
-      expect(repository.find).toHaveBeenCalledWith({
-        id: Not(formatoFakePNG.id),
-        formato: Equal(formatoDto.formato),
+      describe('when id exists and DTO formato is valid', () => {
+        it('should update a formato', async () => {
+          const formato = await service.update(entity.id, dto);
+          expect(repository.update).toHaveBeenCalledTimes(1);
+          expect(repository.update).toHaveBeenCalledWith(entity.id, entity);
+          expect(formato).toEqual(entity);
+        });
       });
-      expect(repository.update).toHaveBeenCalledTimes(0);
     });
 
-    it('should return an error when the update does not affect anything', async () => {
-      repository.findOne = jest.fn().mockImplementation(findOneById);
-      repository.find = jest.fn().mockImplementation(findExistingByOperators);
-      repository.update = jest.fn().mockResolvedValue(updateResultAffectedNone);
+    describe('given a formato id and a DTO formato', () => {
+      const entity = EntityFakeFactory.create();
+      const dto = plainToClass(UpdateFormatoDto, entity);
+      const updateResultAffectedNone = new UpdateResult();
+      updateResultAffectedNone.affected = 0;
 
-      const formatoDto =
-        AssemblerFormato.disassemblyToUpdateFormatoDto(formatoFakePDF);
-
-      await expect(
-        service.update(formatoFakePDF.id, formatoDto),
-      ).rejects.toThrow(new NotFoundException());
-
-      expect(repository.findOne).toHaveBeenCalledTimes(1);
-      expect(repository.findOne).toHaveBeenCalledWith(formatoFakePDF.id);
-      expect(repository.find).toHaveBeenCalledTimes(1);
-      expect(repository.find).toHaveBeenCalledWith({
-        id: Not(formatoFakePDF.id),
-        formato: Equal(formatoDto.formato),
+      beforeEach(() => {
+        repository.find = jest.fn().mockResolvedValue(undefined);
+        repository.update = jest
+          .fn()
+          .mockResolvedValue(updateResultAffectedNone);
       });
-      expect(repository.update).toHaveBeenCalledTimes(1);
+
+      describe('when formato does not exists', () => {
+        it('should return an error', async () => {
+          await expect(service.update(entity.id, dto)).rejects.toThrow(
+            new NotFoundException(),
+          );
+          expect(repository.update).toHaveBeenCalledTimes(1);
+        });
+      });
     });
 
-    it('should return an error when not finding a formato to update', async () => {
-      repository.findOne = jest.fn().mockImplementation(findOneById);
-      repository.find = jest.fn().mockImplementation(findExistingByOperators);
-      repository.update = jest.fn().mockResolvedValue(updateResultAffectedOne);
+    describe('given a formato id and a DTO formato', () => {
+      const entity = EntityFakeFactory.create();
+      const dto = plainToClass(UpdateFormatoDto, entity);
 
-      await expect(service.update(formatoFakePDF.id, null)).rejects.toThrow(
-        new BadRequestException(),
-      );
+      beforeEach(() => {
+        repository.find = jest.fn().mockResolvedValue([entity]);
+        repository.update = jest.fn().mockResolvedValue(undefined);
+      });
 
-      await expect(
-        service.update(formatoFakePDF.id, undefined),
-      ).rejects.toThrow(new BadRequestException());
-
-      expect(repository.findOne).toHaveBeenCalledTimes(0);
-      expect(repository.find).toHaveBeenCalledTimes(0);
-      expect(repository.update).toHaveBeenCalledTimes(0);
+      describe('when updating to a formato that already exists', () => {
+        it('should return an error', async () => {
+          await expect(service.update(entity.id, dto)).rejects.toThrow(
+            new BadRequestException('Format already exists'),
+          );
+          expect(repository.update).toHaveBeenCalledTimes(0);
+        });
+      });
     });
 
-    it('should return an error when not finding an formato id to update', async () => {
-      repository.findOne = jest.fn().mockImplementation(findOneById);
-      repository.find = jest.fn().mockImplementation(findExistingByOperators);
-      repository.update = jest.fn().mockResolvedValue(updateResultAffectedOne);
+    describe('given a formato id and a DTO formato', () => {
+      const entity = EntityFakeFactory.create();
+      const dto = plainToClass(UpdateFormatoDto, entity);
+      const updateResultAffectedNone = new UpdateResult();
+      updateResultAffectedNone.affected = 0;
 
-      const formatoDto =
-        AssemblerFormato.disassemblyToUpdateFormatoDto(formatoFakePDF);
+      beforeEach(() => {
+        repository.find = jest.fn().mockResolvedValue(undefined);
+        repository.update = jest
+          .fn()
+          .mockResolvedValue(updateResultAffectedNone);
+      });
 
-      await expect(service.update('', formatoDto)).rejects.toThrow(
-        new BadRequestException(),
-      );
-
-      await expect(service.update(null, formatoDto)).rejects.toThrow(
-        new BadRequestException(),
-      );
-
-      await expect(service.update(undefined, formatoDto)).rejects.toThrow(
-        new BadRequestException(),
-      );
-
-      expect(repository.findOne).toHaveBeenCalledTimes(0);
-      expect(repository.find).toHaveBeenCalledTimes(0);
-      expect(repository.update).toHaveBeenCalledTimes(0);
+      describe('when the update does not affect anything', () => {
+        it('should return an error', async () => {
+          await expect(service.update(entity.id, dto)).rejects.toThrow(
+            new NotFoundException(),
+          );
+          expect(repository.update).toHaveBeenCalledTimes(1);
+        });
+      });
     });
 
-    it('should return an error when trying to update to an invalid formato', async () => {
-      repository.findOne = jest.fn().mockImplementation(findOneById);
-      repository.find = jest.fn().mockImplementation(findExistingByOperators);
-      repository.update = jest.fn().mockResolvedValue(updateResultAffectedOne);
+    describe('given a formato id and a DTO formato', () => {
+      const entity = EntityFakeFactory.create();
 
-      const formatoDto =
-        AssemblerFormato.disassemblyToUpdateFormatoDto(formatoFakePDF);
+      beforeEach(() => {
+        repository.update = jest.fn().mockResolvedValue(undefined);
+      });
 
-      formatoDto.formato = undefined;
-      await expect(
-        service.update(formatoFakePDF.id, formatoDto),
-      ).rejects.toThrow(new BadRequestException('Format is invalid'));
+      describe('when DTO formato is undefined', () => {
+        it('should return an error', async () => {
+          await expect(service.update(entity.id, undefined)).rejects.toThrow(
+            new BadRequestException(),
+          );
+          expect(repository.update).toHaveBeenCalledTimes(0);
+        });
+      });
+    });
 
-      formatoDto.formato = null;
-      await expect(
-        service.update(formatoFakePDF.id, formatoDto),
-      ).rejects.toThrow(new BadRequestException('Format is invalid'));
+    describe('given a formato id and a DTO formato', () => {
+      const entity = EntityFakeFactory.create();
+      const dto = plainToClass(UpdateFormatoDto, entity);
 
-      formatoDto.formato = '';
-      await expect(
-        service.update(formatoFakePDF.id, formatoDto),
-      ).rejects.toThrow(new BadRequestException('Format is invalid'));
+      beforeEach(() => {
+        repository.update = jest.fn().mockResolvedValue(undefined);
+      });
 
-      expect(repository.findOne).toHaveBeenCalledTimes(0);
-      expect(repository.find).toHaveBeenCalledTimes(0);
-      expect(repository.update).toHaveBeenCalledTimes(0);
+      describe('when id is empty', () => {
+        it('should return an error', async () => {
+          await expect(service.update('', dto)).rejects.toThrow(
+            new BadRequestException(),
+          );
+          expect(repository.update).toHaveBeenCalledTimes(0);
+        });
+      });
+
+      describe('when id is undefined', () => {
+        it('should return an error', async () => {
+          await expect(service.update(undefined, dto)).rejects.toThrow(
+            new BadRequestException(),
+          );
+          expect(repository.update).toHaveBeenCalledTimes(0);
+        });
+      });
     });
   });
 
   describe('findAll', () => {
-    it('should return an array of formatos', async () => {
-      repository.find = jest.fn().mockImplementation(findAll);
+    describe('given an array of formatos', () => {
+      const formatosFake = [EntityFakeFactory.create()];
 
-      const formatos = await service.findAll();
+      beforeEach(() => {
+        repository.find = jest.fn().mockResolvedValue(formatosFake);
+      });
 
-      expect(formatosFake).toEqual(formatos);
-      expect(repository.find).toHaveBeenCalledTimes(1);
+      describe('when no params', () => {
+        it('should return all formatos', async () => {
+          const formatos = await service.findAll();
+          expect(formatosFake).toEqual(formatos);
+          expect(repository.find).toHaveBeenCalledTimes(1);
+        });
+      });
     });
   });
 
   describe('findOne', () => {
-    it('should return a formato', async () => {
-      repository.findOne = jest.fn().mockImplementation(findOneById);
+    describe('given a formato id', () => {
+      const entity = EntityFakeFactory.create();
 
-      const formato = await service.findOne(formatoFakePDF.id);
+      beforeEach(() => {
+        repository.findOne = jest.fn().mockResolvedValue(entity);
+      });
 
-      expect(formatoFakePDF).toEqual(formato);
-      expect(repository.findOne).toHaveBeenCalledTimes(1);
+      describe('when formato id exists', () => {
+        it('should return a formato', async () => {
+          const formato = await service.findOne(entity.id);
+          expect(entity).toEqual(formato);
+          expect(repository.findOne).toHaveBeenCalledTimes(1);
+        });
+      });
     });
 
-    it('should return an error when id is not provided', async () => {
-      repository.findOne = jest.fn().mockImplementation(findOneById);
+    describe('given a formato id', () => {
+      beforeEach(() => {
+        repository.findOne = jest.fn().mockResolvedValue(undefined);
+      });
 
-      await expect(service.findOne('')).rejects.toThrow(
-        new BadRequestException(),
-      );
-
-      expect(repository.findOne).toHaveBeenCalledTimes(0);
+      describe('when id is empty', () => {
+        it('should return an error', async () => {
+          await expect(service.findOne('')).rejects.toThrow(
+            new BadRequestException(),
+          );
+          expect(repository.findOne).toHaveBeenCalledTimes(0);
+        });
+      });
     });
 
-    it('should return an error when not finding a formato', async () => {
-      repository.findOne = jest.fn().mockImplementation(findOneById);
+    describe('given a formato id', () => {
+      const id = '99ec0719-459e-460e-b7d9-73a4012e5b99';
 
-      await expect(service.findOne('id-inexistente')).rejects.toThrow(
-        new NotFoundException(),
-      );
+      beforeEach(() => {
+        repository.findOne = jest.fn().mockResolvedValue(undefined);
+      });
 
-      expect(repository.findOne).toHaveBeenCalledTimes(1);
+      describe('when not finding a formato', () => {
+        it('should return an error', async () => {
+          await expect(service.findOne(id)).rejects.toThrow(
+            new NotFoundException(),
+          );
+          expect(repository.findOne).toHaveBeenCalledTimes(1);
+        });
+      });
     });
   });
 });

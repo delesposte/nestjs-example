@@ -8,36 +8,37 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FormatoService } from './formato.service';
-import { CreateFormatoDto } from './dto/create-formato.dto';
-import { UpdateFormatoDto } from './dto/update-formato.dto';
+import { CreateFormatoDto } from './dto/createFormato.dto';
+import { UpdateFormatoDto } from './dto/updateFormato.dto';
 import { Formato } from './entities/formato.entity';
-import { TransformInterceptor } from 'src/core/interceptors/transform.interceptor';
+import { TransformInterceptor } from 'src/core/interceptors/Transform.interceptor';
+import { OutputFormatoDto } from './dto/outputFormato.dto';
 
 @Controller('formato')
-@UseInterceptors(new TransformInterceptor(CreateFormatoDto))
+@UseInterceptors(new TransformInterceptor(OutputFormatoDto))
 export class FormatoController {
-  constructor(private readonly formatoService: FormatoService) {}
+  constructor(private readonly service: FormatoService) {}
 
   @Post()
   async create(@Body() createFormatoDto: CreateFormatoDto): Promise<Formato> {
-    return await this.formatoService.create(createFormatoDto);
+    return await this.service.create(createFormatoDto);
   }
 
   @Get()
-  findAll(): Promise<Formato[]> {
-    return this.formatoService.findAll();
+  async findAll(): Promise<Formato[]> {
+    return this.service.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string): Promise<Formato> {
-    return this.formatoService.findOne(id);
+  async findOne(@Param('id') id: string): Promise<Formato> {
+    return this.service.findOne(id);
   }
 
   @Patch(':id')
-  update(
+  async update(
     @Param('id') id: string,
     @Body() updateFormatoDto: UpdateFormatoDto,
   ): Promise<Formato> {
-    return this.formatoService.update(id, updateFormatoDto);
+    return this.service.update(id, updateFormatoDto);
   }
 }
